@@ -1,0 +1,26 @@
+# =========================
+# Dockerfile Used for Local Development with Docker Compose
+# =========================
+FROM golang:1.23 AS build
+
+# ARG GITHUB_TOKEN
+# RUN git config --global url."https://${GITHUB_TOKEN}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
+
+# Add safe directory to avoid git warning - can we remove this somehow?
+RUN git config --global --add safe.directory /app 
+
+# Install Air (not working with m1/colima)
+RUN go install github.com/air-verse/air@latest
+
+# attempt to get go air to notice file changes (did not work - i think this is an docker/colima issue)
+# RUN apt-get update && apt-get install -y inotify-tools
+
+ADD . /app
+COPY go.mod /app/
+COPY go.sum /app/
+WORKDIR /app
+RUN make dep
+
+
+
+CMD ["air"]

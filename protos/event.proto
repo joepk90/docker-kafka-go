@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package event;
+
+option go_package = "docker-kafka-go/gen/go/event"; // Defines the Go package
+
+import "google/protobuf/timestamp.proto";
+
+message Event {
+    string id = 1;
+    string message = 2;
+    Status status = 3;
+    Tag tag = 4;
+    google.protobuf.Timestamp created_at = 5;
+}
+
+enum Tag {
+    EVENT_TAG_UNDEFINED = 0;
+    EVENT_TAG_TECHNOLOGY = 1;
+    EVENT_TAG_BUSINESS = 2;
+    EVENT_TAG_SOCIAL = 3;
+}
+
+enum Status {
+    EVENT_STATUS_UNKNOWN = 0;
+    EVENT_STATUS_FAILED = 1;
+    EVENT_STATUS_SUCCESSFUL = 2;
+    EVENT_STATUS_PENDING = 3;
+}
