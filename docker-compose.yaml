@@ -1,0 +1,77 @@
+services:
+  consumer:
+    build: 
+      dockerfile: ./Dockerfile.compose
+      # args:
+      #   - GITHUB_TOKEN=${GITHUB_TOKEN}
+    volumes:
+      - .:/app
+    command: [ "air" ]  # TODO make it restart the service when code changes
+    depends_on:
+      # cockroachdb:
+      #   condition: service_healthy
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env.compose
+    networks:
+      - test-network
+    
+
+  kafka:
+    image: bitnami/kafka:3.6.2
+    environment:
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:$KAFKA_INTERNAL_PORT,CONTROLLER://:9093,EXTERNAL://:$KAFKA_EXTERNAL_PORT
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://${KAFKA_INTERNAL_HOST},EXTERNAL://${KAFKA_EXTERNAL_HOST}
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: true
+    healthcheck:
+      test: kafka-topics.sh --list --bootstrap-server localhost:$KAFKA_INTERNAL_PORT || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    ports:
+      - "$KAFKA_INTERNAL_PORT:$KAFKA_INTERNAL_PORT"
+      - "$KAFKA_EXTERNAL_PORT:$KAFKA_EXTERNAL_PORT"
+    networks:
+      - test-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: ${KAFKA_INTERNAL_HOST}
+    networks:
+      - test-network
+
+  cockroachdb:
+    image: cockroachdb/cockroach:arm64-v23.1.13
+    platform: linux/arm64/v8  # Ensure it runs on ARM64 architecture
+    entrypoint: ["/bin/sh", "-c", "cockroach start-single-node --insecure"]
+    environment:
+      - COCKROACH_CHANNEL=stable
+    ports:
+      - "26257:26257"  # Default port for CockroachDB SQL connections
+      - "8081:8080"    # Web UI for monitoring and querying the DB
+    networks:
+      - test-network
+    volumes:
+      - cockroachdb-data:/cockroach/cockroach-data
+
+# Volumes to persist CockroachDB data
+volumes:
+  cockroachdb-data:
+    driver: local
+
+networks:
+  test-network:
+    driver: bridge
